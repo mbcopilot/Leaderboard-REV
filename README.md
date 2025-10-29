@@ -1,2 +1,683 @@
-# Leaderboard-REV
-Leaderboard-REV
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hunters Leaderboard — Online Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root{
+      --bg: #f8fafc;
+      --card:#ffffff;
+      --primary: #2563eb;
+      --accent: #1e3a8a;
+      --muted:#64748b;
+      --border:#e6eefc;
+      --shadow: rgba(16,24,40,0.06);
+      --text:#0f172a;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);font-family:'Poppins',sans-serif;color:var(--text);padding:32px 24px;}
+
+    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
+    h1{margin:0;font-size:32px;font-weight:700;color:var(--accent);}
+    .subtitle{color:var(--muted);font-size:16px;font-weight:500;}
+
+    .top-row{
+      display:grid;
+      grid-template-columns: 220px 1fr 1fr;
+      gap:24px;
+      align-items:start;
+    }
+    @media(max-width:1200px){
+      .top-row{grid-template-columns:1fr 1fr; gap:20px;}
+      .champion-card{display:none;}
+    }
+    @media(max-width:800px){
+      .top-row{grid-template-columns:1fr;}
+    }
+
+    .champion-card{
+      background:linear-gradient(180deg,#ffffff, #f8fbff);
+      border:1px solid var(--border);
+      border-radius:20px;
+      padding:24px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:16px;
+      box-shadow:0 14px 32px var(--shadow);
+      height:fit-content;
+      position:relative;
+      overflow:visible;
+    }    
+
+    .avatar{
+      width:140px;
+      height:140px;
+      border-radius:50%;
+      background:linear-gradient(135deg,#e6f0ff,#ffffff);
+      display:flex;align-items:center;justify-content:center;
+      border:7px solid #fff;
+      box-shadow:0 10px 25px rgba(37,99,235,0.2);
+      overflow:hidden;
+      position:relative;
+      z-index:5;
+    }
+    .avatar img{width:100%;height:100%;object-fit:cover;display:block;}
+
+    .champ-name{
+      font-size:20px;
+      font-weight:700;
+      color:var(--accent);
+      text-align:center;
+      line-height:1.3;
+      margin-top:8px;
+    }
+    .champ-meta{
+      color:var(--muted);
+      font-size:15px;
+      text-align:center;
+      font-weight:500;
+    }
+
+    .champ-stats{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:center;
+      width:100%;
+    }
+    .stat-pill{
+      background:#f1f8ff;
+      border:1px solid #dbeafe;
+      padding:8px 14px;
+      border-radius:14px;
+      font-weight:600;
+      color:var(--accent);
+      font-size:14px;
+      min-width:80px;
+      text-align:center;
+    }
+
+    .medal{
+      width:80px;
+      height:80px;
+      filter: drop-shadow(0 4px 8px rgba(255,193,7,0.3));
+      margin-top:8px;
+    }
+
+    .company-logo{
+      width:140px;
+      margin-top:12px;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+    }
+
+    .leaderboard-card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:20px;
+      box-shadow:0 10px 25px var(--shadow);
+      display:flex;
+      flex-direction:column;
+    }
+    .card-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:14px;
+      flex-wrap:wrap;
+    }
+    .card-header h2{margin:0;font-size:20px;font-weight:700;color:var(--accent);}
+    .pill{
+      display:inline-block;
+      padding:6px 12px;
+      border-radius:999px;
+      border:1px solid rgba(37,99,235,0.15);
+      color:var(--primary);
+      font-weight:600;
+      background:#eff6ff;
+      font-size:14px;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:15px;
+      margin-top:8px;
+    }
+    th,td{
+      padding:12px 8px;
+      border-bottom:1px solid #f1f5f9;
+      text-align:left;
+    }
+    th{
+      background:transparent;
+      color:var(--primary);
+      font-weight:600;
+      font-size:15px;
+      position:sticky;
+      top:0;
+      z-index:1;
+    }
+    tr.rank-1 td{background:rgba(37,99,235,0.08);}
+    tr.rank-2 td{background:rgba(99,102,241,0.08);}
+    tr.rank-3 td{background:rgba(250,204,21,0.08);}
+    tr.team-top td{background:rgba(34,197,94,0.08);}
+
+    /* TOP 1,2,3 FONT LỚN */
+    #tblPerson tbody tr.rank-1 td,
+    #tblPerson tbody tr.rank-2 td,
+    #tblPerson tbody tr.rank-3 td {
+      font-size: 17px !important;
+      font-weight: 700 !important;
+    }
+
+    .control-panel{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:24px;
+      box-shadow:0 8px 20px var(--shadow);
+      margin-top:80px;
+      max-width: 1000px;
+      margin-left:auto;
+      margin-right:auto;
+    }
+    .controls{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:20px;
+      align-items:end;
+    }
+    @media(max-width:768px){.controls{grid-template-columns:1fr;}}
+    .controls .group{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .controls label{
+      font-size:14px;
+      color:var(--muted);
+      font-weight:600;
+    }
+    input[type=file], select, input[type=month], input[type=number], button, input[type=text]{
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:10px 12px;
+      font-size:15px;
+      background:#fff;
+      color:var(--text);
+      height:44px;
+    }
+    button{
+      background:var(--primary);
+      color:#fff;
+      border:none;
+      cursor:pointer;
+      font-weight:600;
+      border-radius:10px;
+      padding:0 18px;
+      font-size:15px;
+    }
+    button.ghost{
+      background:transparent;
+      color:var(--primary);
+      border:1px solid var(--primary);
+    }
+    .file-upload-group{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .weights-row{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .weights-row label{margin-right:6px;font-weight:600;}
+    .weights-row input{width:70px;}
+
+    .footer{
+      color:var(--muted);
+      font-size:13px;
+      text-align:center;
+      margin-top:20px;
+      font-weight:500;
+    }
+
+    .upload-group{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      flex-wrap:wrap;
+      margin-top:8px;
+    }
+    .upload-item{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    .upload-item label{
+      background:transparent;
+      color:var(--primary);
+      border:1px dashed var(--primary);
+      cursor:pointer;
+      padding:8px 14px;
+      border-radius:10px;
+      font-size:14px;
+      font-weight:600;
+      text-align:center;
+      min-width:140px;
+    }
+    .upload-item input{display:none;}
+
+    #sharepointUrl {
+      flex:1;
+      min-width:300px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Hunters Leaderboard</h1>
+      <div class="subtitle">Điểm = Meetings×<span id="wMText">15</span> + SQLs×<span id="wSText">30</span> + Contracts×<span id="wCText">50</span></div>
+    </div>
+  </header>
+
+  <div class="top-row">
+    <div class="champion-card">
+      <div class="avatar" id="champAvatar">
+        <img id="champImg" src="" alt="Champion" />
+      </div>
+      <div class="champ-name" id="champName">— Chưa có dữ liệu —</div>
+      <div class="champ-meta" id="champTeam">Team —</div>
+      <div class="champ-stats">
+        <div class="stat-pill" id="champPoints">0 pts</div>
+        <div class="stat-pill" id="champMeet">0 Meet</div>
+        <div class="stat-pill" id="champSql">0 SQL</div>
+        <div class="stat-pill" id="champContract">0 Contract</div>
+      </div>
+      <img id="medalImg" src="" alt="Gold Medal" class="medal" />
+      <img id="logoImg" src="" alt="Company Logo" class="company-logo" />
+    </div>
+
+    <div class="leaderboard-card">
+      <div class="card-header">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <h2>Solo Hunter Champion</h2>
+          <span class="pill">Top performers</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select id="filterTeam" style="height:38px;font-size:14px;padding:0 10px;min-width:100px;"><option value="">(Tất cả)</option></select>
+          <select id="filterPerson" style="height:38px;font-size:14px;padding:0 10px;min-width:120px;"><option value="">(Tất cả)</option></select>
+        </div>
+      </div>
+      <table id="tblPerson">
+        <thead><tr>
+          <th style="width:40px">#</th><th>Person</th><th>Team</th>
+          <th>M</th><th>S</th><th>C</th><th>Pts</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="leaderboard-card">
+      <div class="card-header">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <h2>Team Hunters Champion</h2>
+          <span class="pill">Team total</span>
+        </div>
+      </div>
+      <table id="tblTeam">
+        <thead><tr>
+          <th style="width:40px">#</th><th>Team</th>
+          <th>M</th><th>S</th><th>C</th><th>Total Pts</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="control-panel">
+    <div class="controls">
+      <div class="group">
+        <label><strong>Excel (.xlsx)</strong></label>
+        <div class="file-upload-group">
+          <input type="file" id="file" accept=".xlsx" />
+          <input type="text" id="sharepointUrl" placeholder="Hoặc paste link SharePoint + ?download=1" />
+          <select id="sheet" title="Sheet" style="width:140px;"></select>
+          <button id="load">Nạp</button>
+          <button id="reset" class="ghost">Reset</button>
+        </div>
+
+        <div class="upload-group">
+          <div class="upload-item">
+            <label for="champFile">Ảnh Champion</label>
+            <input type="file" id="champFile" accept="image/*" />
+          </div>
+          <div class="upload-item">
+            <label for="medalFile">Huy chương vàng</label>
+            <input type="file" id="medalFile" accept="image/*" />
+          </div>
+          <div class="upload-item">
+            <label for="logoFile">Logo công ty</label>
+            <input type="file" id="logoFile" accept="image/*" />
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:20px;align-items:end;flex-wrap:wrap;">
+        <div class="group">
+          <label>Tháng</label>
+          <input type="month" id="byMonth" />
+        </div>
+        <div class="group">
+          <label>Weights</label>
+          <div class="weights-row">
+            <label>Meet</label><input type="number" id="wM" min="0" step="1" value="15" />
+            <label>SQL</label><input type="number" id="wS" min="0" step="1" value="30" />
+            <label>Contract</label><input type="number" id="wC" min="0" step="1" value="50" />
+            <button id="applyW" style="height:44px;">Áp dụng</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <strong>Link SharePoint:</strong> Share "Anyone with link" + thêm <code>?download=1</code><br>
+      Dùng <a href="https://corsproxy.io" target="_blank">corsproxy.io</a> để bỏ CORS.
+    </div>
+  </div>
+
+  <script>
+    const $ = (sel) => document.querySelector(sel);
+
+    let weights = { meeting: 15, sql: 30, contract: 50 };
+    let rawRows = [];
+    let people = new Set();
+    let teams = new Set();
+
+    const fileInput = $("#file");
+    const sharepointUrl = $("#sharepointUrl");
+    const sheetSelect = $("#sheet");
+    const btnLoad = $("#load");
+    const btnReset = $("#reset");
+    const filterTeam = $("#filterTeam");
+    const filterPerson = $("#filterPerson");
+    const byMonth = $("#byMonth");
+    const wM = $("#wM"), wS = $("#wS"), wC = $("#wC");
+    const wMText = $("#wMText"), wSText = $("#wSText"), wCText = $("#wCText");
+    const applyW = $("#applyW");
+
+    const champFile = $("#champFile");
+    const medalFile = $("#medalFile");
+    const logoFile = $("#logoFile");
+    const champImgEl = $("#champImg");
+    const medalImgEl = $("#medalImg");
+    const logoImgEl = $("#logoImg");
+
+    let workbookBinary = null;
+
+    function loadSavedImages() {
+      const savedChamp = localStorage.getItem('hunters_champ_img');
+      const savedMedal = localStorage.getItem('hunters_medal_img');
+      const savedLogo = localStorage.getItem('hunters_logo_img');
+
+      if (savedChamp) champImgEl.src = savedChamp;
+      else champImgEl.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140"><rect width="100%" height="100%" fill="#eef6ff"/><text x="50%" y="55%" font-size="16" dominant-baseline="middle" text-anchor="middle" fill="#2563eb">Champion</text></svg>`);
+
+      if (savedMedal) medalImgEl.src = savedMedal;
+      else medalImgEl.src = 'https://i.imgur.com/6d8n9Yk.png';
+
+      if (savedLogo) logoImgEl.src = savedLogo;
+      else logoImgEl.src = 'https://i.imgur.com/8vM3kLp.png';
+    }
+
+    function setupUpload(input, key, imgEl) {
+      input.addEventListener('change', (e) => {
+        const f = e.target.files[0];
+        if (!f) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          imgEl.src = reader.result;
+          localStorage.setItem(key, reader.result);
+        };
+        reader.readAsDataURL(f);
+      });
+    }
+
+    setupUpload(champFile, 'hunters_champ_img', champImgEl);
+    setupUpload(medalFile, 'hunters_medal_img', medalImgEl);
+    setupUpload(logoFile, 'hunters_logo_img', logoImgEl);
+
+    fileInput.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const data = await file.arrayBuffer();
+      workbookBinary = data;
+      populateSheets(data);
+    });
+
+    btnLoad.addEventListener("click", async () => {
+      const url = sharepointUrl.value.trim();
+      const hasFile = fileInput.files.length > 0;
+
+      if (!hasFile && !url) {
+        alert("Chọn file hoặc paste link SharePoint trước.");
+        return;
+      }
+
+      try {
+        let arrayBuffer;
+
+        if (hasFile) {
+          arrayBuffer = workbookBinary;
+        } else {
+          // DÙNG PROXY ĐỂ BỎ CORS
+          const proxyUrl = "https://corsproxy.io/?";
+          const response = await fetch(proxyUrl + encodeURIComponent(url));
+          if (!response.ok) throw new Error(`Lỗi ${response.status}: Kiểm tra link + ?download=1`);
+          arrayBuffer = await response.arrayBuffer();
+        }
+
+        const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: "array" });
+        workbookBinary = arrayBuffer;
+        populateSheets(arrayBuffer);
+
+        const sheetName = sheetSelect.value || wb.SheetNames[0];
+        const sheet = wb.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+        loadData(json);
+
+      } catch (error) {
+        alert(`Lỗi: ${error.message}\n\nGợi ý:\n1. Share 'Anyone with link'\n2. Thêm ?download=1\n3. Test link trong Incognito`);
+        console.error(error);
+      }
+    });
+
+    function populateSheets(arrayBuffer) {
+      const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: "array" });
+      sheetSelect.innerHTML = "";
+      (wb.SheetNames || []).forEach((name) => {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        sheetSelect.appendChild(opt);
+      });
+      const idx = Array.from(sheetSelect.options).findIndex(o => o.value.toLowerCase() === "tracking");
+      sheetSelect.selectedIndex = idx >= 0 ? idx : 0;
+    }
+
+    btnReset.addEventListener("click", () => {
+      filterTeam.value = "";
+      filterPerson.value = "";
+      byMonth.value = "";
+      render();
+    });
+
+    filterTeam.addEventListener("change", render);
+    filterPerson.addEventListener("change", render);
+    byMonth.addEventListener("change", render);
+    applyW.addEventListener("click", () => {
+      weights.meeting = Number(wM.value) || 0;
+      weights.sql = Number(wS.value) || 0;
+      weights.contract = Number(wC.value) || 0;
+      wMText.textContent = weights.meeting;
+      wSText.textContent = weights.sql;
+      wCText.textContent = weights.contract;
+      render();
+    });
+
+    function normalizeNumber(v) { const n = Number(v); return Number.isFinite(n) ? n : 0; }
+    function parseDateCell(v) {
+      if (v === null || v === undefined || v === "") return null;
+      if (typeof v === "number") {
+        const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+        const ms = v * 24 * 60 * 60 * 1000;
+        return new Date(excelEpoch.getTime() + ms);
+      }
+      const d = new Date(v);
+      return isNaN(d) ? null : d;
+    }
+
+    function loadData(json) {
+      rawRows = []; people = new Set(); teams = new Set();
+      json.forEach((row) => {
+        const person = String(row.Person || row.person || "").trim();
+        const team = String(row.Team || row.team || "").trim();
+        const meetings = normalizeNumber(row.Meetings ?? row.meetings ?? 0);
+        const sqls = normalizeNumber(row.SQLs ?? row.sqls ?? 0);
+        const contracts = normalizeNumber(row.Contracts ?? row.contracts ?? 0);
+        const dt = parseDateCell(row.Date ?? row.date ?? "");
+        if (!person) return;
+        rawRows.push({ person, team, meetings, sqls, contracts, date: dt });
+        people.add(person);
+        if (team) teams.add(team);
+      });
+
+      filterPerson.innerHTML = '<option value="">(Tất cả)</option>';
+      Array.from(people).sort().forEach(p => {
+        const opt = document.createElement("option"); opt.value = p; opt.textContent = p; filterPerson.appendChild(opt);
+      });
+      filterTeam.innerHTML = '<option value="">(Tất cả)</option>';
+      Array.from(teams).sort().forEach(t => {
+        const opt = document.createElement("option"); opt.value = t; opt.textContent = t; filterTeam.appendChild(opt);
+      });
+
+      render();
+    }
+
+    function monthRange(monthStr) {
+      if (!monthStr) return null;
+      const [y, m] = monthStr.split("-").map(Number);
+      if (!y || !m) return null;
+      const start = new Date(Date.UTC(y, m - 1, 1));
+      const end = new Date(Date.UTC(y, m, 1));
+      return { start, end };
+    }
+
+    function applyFilters(rows) {
+      const t = filterTeam.value;
+      const p = filterPerson.value;
+      const mr = monthRange(byMonth.value);
+      return rows.filter(r => {
+        if (t && r.team !== t) return false;
+        if (p && r.person !== p) return false;
+        if (mr && r.date) {
+          if (!(r.date >= mr.start && r.date < mr.end)) return false;
+        }
+        return true;
+      });
+    }
+
+    function calcPoints(m, s, c) { return m * weights.meeting + s * weights.sql + c * weights.contract; }
+
+    function render() {
+      const rows = applyFilters(rawRows);
+      const aggPerson = new Map();
+      rows.forEach(r => {
+        const key = r.person + "||" + (r.team || "");
+        const obj = aggPerson.get(key) || { person: r.person, team: r.team || "", meetings: 0, sqls: 0, contracts: 0, points: 0 };
+        obj.meetings += r.meetings; obj.sqls += r.sqls; obj.contracts += r.contracts;
+        obj.points = calcPoints(obj.meetings, obj.sqls, obj.contracts);
+        aggPerson.set(key, obj);
+      });
+      const personList = Array.from(aggPerson.values()).sort((a,b) => b.points - a.points);
+
+      const aggTeam = new Map();
+      rows.forEach(r => {
+        const key = r.team || "(No Team)";
+        const obj = aggTeam.get(key) || { team: key, meetings: 0, sqls: 0, contracts: 0, points: 0 };
+        obj.meetings += r.meetings; obj.sqls += r.sqls; obj.contracts += r.contracts;
+        obj.points = calcPoints(obj.meetings, obj.sqls, obj.contracts);
+        aggTeam.set(key, obj);
+      });
+      const teamList = Array.from(aggTeam.values()).sort((a,b) => b.points - a.points);
+
+      const tb1 = $("#tblPerson tbody");
+      tb1.innerHTML = "";
+      personList.forEach((r, i) => {
+        const tr = document.createElement("tr");
+        if (i === 0) tr.classList.add("rank-1");
+        else if (i === 1) tr.classList.add("rank-2");
+        else if (i === 2) tr.classList.add("rank-3");
+        tr.innerHTML = `<td>${i+1}</td><td>${escapeHtml(r.person)}</td><td>${escapeHtml(r.team || "")}</td><td>${r.meetings}</td><td>${r.sqls}</td><td>${r.contracts}</td><td><strong>${r.points.toLocaleString()}</strong></td>`;
+        tb1.appendChild(tr);
+      });
+
+      const tb2 = $("#tblTeam tbody");
+      tb2.innerHTML = "";
+      teamList.forEach((r, i) => {
+        const tr = document.createElement("tr");
+        if (i === 0) tr.classList.add("team-top");
+        tr.innerHTML = `<td>${i+1}</td><td>${escapeHtml(r.team)}</td><td>${r.meetings}</td><td>${r.sqls}</td><td>${r.contracts}</td><td><strong>${r.points.toLocaleString()}</strong></td>`;
+        tb2.appendChild(tr);
+      });
+
+      updateChampionFromList(personList);
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[m]);
+    }
+
+    const champNameEl = $("#champName");
+    const champTeamEl = $("#champTeam");
+    const champPointsEl = $("#champPoints");
+    const champMeetEl = $("#champMeet");
+    const champSqlEl = $("#champSql");
+    const champContractEl = $("#champContract");
+
+    function updateChampionFromList(personList) {
+      if (!personList || personList.length === 0) {
+        champNameEl.textContent = '— Chưa có dữ liệu —';
+        champTeamEl.textContent = 'Team —';
+        champPointsEl.textContent = '0 pts';
+        champMeetEl.textContent = '0 Meet';
+        champSqlEl.textContent = '0 SQL';
+        champContractEl.textContent = '0 Contract';
+        return;
+      }
+      const top = personList[0];
+      champNameEl.textContent = top.person || '—';
+      champTeamEl.textContent = top.team ? `Team ${top.team}` : '(No Team)';
+      champPointsEl.textContent = `${top.points.toLocaleString()} pts`;
+      champMeetEl.textContent = `${top.meetings} Meet`;
+      champSqlEl.textContent = `${top.sqls} SQL`;
+      champContractEl.textContent = `${top.contracts} Contract`;
+    }
+
+    window.addEventListener('load', () => {
+      loadSavedImages();
+      setTimeout(render, 200);
+    });
+  </script>
+</body>
+</html>
