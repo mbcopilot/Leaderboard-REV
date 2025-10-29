@@ -484,7 +484,8 @@
           arrayBuffer = workbookBinary;
         } else {
           // Dùng link SharePoint
-          const response = await fetch(url);
+          const proxyUrl = "https://corsproxy.io/?";
+          const response = await fetch(proxyUrl + encodeURIComponent(url));
           if (!response.ok) throw new Error(`Lỗi ${response.status}: Không tải được file.`);
           arrayBuffer = await response.arrayBuffer();
         }
@@ -708,4 +709,5 @@
     });
   </script>
 </body>
+
 </html>
